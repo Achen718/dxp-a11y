@@ -81,11 +81,15 @@ export const scanWebsite = async (
       domData,
       screenshot: includeScreenshot ? screenshotB64 : undefined,
     };
+    // TODO: Implement keyboard flow analysis
     if (includeKeyboardFlow) {
       results.keyboardFlow = {
         totalTabStops: 0,
         tabSequence: [],
-        analysis: { issues: [], summary: 'Not run' },
+        analysis: {
+          issues: [],
+          summary: 'Keyboard flow analysis not yet implemented',
+        },
       };
     }
 
@@ -97,7 +101,7 @@ export const scanWebsite = async (
       summary: {
         totalIssues: violations.length || 0,
         byImpact,
-        keyboardIssues: includeKeyboardFlow ? 0 : 0,
+        keyboardIssues: 0, // TODO: Implement keyboard flow analysis
         durationMs: Date.now() - start,
       },
       timestamp: new Date().toISOString(),
