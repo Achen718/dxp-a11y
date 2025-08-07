@@ -21,7 +21,8 @@
     "lighthouse": "^12.8.1",
     "pa11y": "^9.0.0",
     "playwright": "^1.40.0",
-    "puppeteer": "^24.16.0"
+    "puppeteer": "^24.16.0",
+    "zod": "^4.0.15"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

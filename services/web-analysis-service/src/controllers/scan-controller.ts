@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
 import AccessibilityScanner from './accessibility-scanner';
 import type { AxeResults, ImpactValue } from 'axe-core';
@@ -8,27 +9,25 @@ type ImpactKey = Extract<
   'critical' | 'serious' | 'moderate' | 'minor'
 >;
 
+const ScanRequestSchema = z.object({
+  url: z.url({ error: 'Invalid URL' }),
+  includeScreenshot: z.boolean().optional(),
+  includeKeyboardFlow: z.boolean().optional(),
+});
+
 export const scanWebsite = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  const { url, includeScreenshot, includeKeyboardFlow } = (req.body || {}) as {
-    url?: string;
-    includeScreenshot?: boolean;
-    includeKeyboardFlow?: boolean;
-  };
-  if (!url) {
-    res.status(400).json({ error: 'URL is required' });
+  const parseResult = ScanRequestSchema.safeParse(req.body ?? {});
+  if (!parseResult.success) {
+    res.status(400).json({
+      error: 'Invalid request body',
+      details: z.treeifyError(parseResult.error),
+    });
     return;
   }
-  try {
-    // Validate URL format
-    // eslint-disable-next-line no-new
-    new URL(url);
-  } catch {
-    res.status(400).json({ error: 'Invalid URL' });
-    return;
-  }
+  const { url, includeScreenshot, includeKeyboardFlow } = parseResult.data;
 
   const start = Date.now();
   const scanId = randomUUID();
@@ -107,13 +106,7 @@ export const scanWebsite = async (
       timestamp: new Date().toISOString(),
     });
   } catch (e: unknown) {
-    const message =
-      e &&
-      typeof e === 'object' &&
-      'message' in e &&
-      typeof (e as { message?: unknown }).message === 'string'
-        ? (e as { message: string }).message
-        : 'Unknown error';
+    const message = e instanceof Error ? e.message : 'Unknown error';
     const status = message.includes('timeout') ? 504 : 500;
     res.status(status).json({ error: 'Scan failed', message });
   }
