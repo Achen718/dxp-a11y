@@ -185,6 +185,9 @@ dmypy.json
 .env.test.local
 .env.production.local
 
+# Web analysis service
+services/web-analysis-service/response.json
+
 # Misc
 *.pem
 
