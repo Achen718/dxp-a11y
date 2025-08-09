@@ -13,6 +13,7 @@ const ScanRequestSchema = z.object({
   url: z.url({ error: 'Invalid URL' }),
   includeScreenshot: z.boolean().optional(),
   includeKeyboardFlow: z.boolean().optional(),
+  includeAiAnalysis: z.boolean().optional(),
 });
 
 export const scanWebsite = async (
@@ -27,7 +28,8 @@ export const scanWebsite = async (
     });
     return;
   }
-  const { url, includeScreenshot, includeKeyboardFlow } = parseResult.data;
+  const { url, includeScreenshot, includeKeyboardFlow, includeAiAnalysis } =
+    parseResult.data;
 
   const start = Date.now();
   const scanId = randomUUID();
@@ -75,6 +77,7 @@ export const scanWebsite = async (
         tabSequence: Array<unknown>;
         analysis: { issues: Array<unknown>; summary: string };
       };
+      aiAnalysis?: unknown;
     } = {
       axeResults,
       domData,
@@ -92,6 +95,42 @@ export const scanWebsite = async (
       };
     }
 
+    // Optional AI Agent analysis
+    let aiInsightsTotal = 0;
+    if (includeAiAnalysis) {
+      try {
+        const AI_AGENT_URL =
+          process.env.AI_AGENT_URL || 'http://localhost:3004';
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 8000);
+        const resp = await fetch(`${AI_AGENT_URL}/analyze`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            url,
+            scanId,
+            axeResults,
+            domData,
+            screenshotB64: includeScreenshot ? screenshotB64 : undefined,
+            // keyboardFlow can be included once implemented
+          }),
+          signal: controller.signal,
+        });
+        clearTimeout(timer);
+        if (resp.ok) {
+          const aiJson = (await resp.json()) as {
+            insights?: unknown[];
+            summary?: { totalInsights?: number };
+            [k: string]: unknown;
+          };
+          results.aiAnalysis = aiJson;
+          aiInsightsTotal = aiJson?.summary?.totalInsights ?? 0;
+        }
+      } catch {
+        // Non-fatal: ignore AI errors/timeouts
+      }
+    }
+
     res.json({
       success: true,
       url,
@@ -101,6 +140,7 @@ export const scanWebsite = async (
         totalIssues: violations.length || 0,
         byImpact,
         keyboardIssues: 0, // TODO: Implement keyboard flow analysis
+        aiInsights: aiInsightsTotal,
         durationMs: Date.now() - start,
       },
       timestamp: new Date().toISOString(),

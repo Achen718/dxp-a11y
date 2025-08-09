@@ -45,9 +45,18 @@ export default class AccessibilityScanner {
     const page: Page = await browser.newPage();
     try {
       await page.setViewport({ width: 1280, height: 800 });
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+      // Ensure the DOM is present before running analysis
+      await page.waitForSelector('body', { visible: true, timeout: 15000 });
 
-      const axeResults: AxeResults = await new AxePuppeteer(page).analyze();
+      // Run Axe with a quick retry in case the page wasn't fully ready
+      let axeResults: AxeResults;
+      try {
+        axeResults = await new AxePuppeteer(page).analyze();
+      } catch {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        axeResults = await new AxePuppeteer(page).analyze();
+      }
       const domData: DomData = await page.evaluate(() => ({
         title: document.title,
         headings: Array.from(
